@@ -23,28 +23,48 @@ This project was made in the Python language, utilizing Jupyter notebooks.
 The Libraries that are require for this Python project to properly run are:
 
 import requests 
+
 import json 
+
 import pandas as pd
+
 import numpy as np
+
 from datetime import datetime, timedelta, time
+
 import pickle
+
 import matplotlib.pyplot as plt
+
 import matplotlib.dates as mdates
+
 from time import process_time 
+
 import mysql.connector
+
 from newsapi import NewsApiClient
 
 In otrder to download this libraries you will need to add a new chunk to the code and run it before the import statements.
 
+
 !pip install requests
+
 !pip install json
+
 !pip install pandas
+
 !pip install numpy
+
 !pip install datetime
+
 !pip install pickle
+
 !pip install matplotlib
+
 !pip install time
+
 !pip install mysql.connector
+
 
 This list of commands will gather all the required libraries.
 Each section of the code already has the import statements stablished for it to run.
