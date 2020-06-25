@@ -44,7 +44,7 @@ import mysql.connector
 
 from newsapi import NewsApiClient
 
-In otrder to download this libraries you will need to add a new chunk to the code and run it before the import statements.
+In order to download this libraries you will need to add a new chunk to the code and run it before the import statements.
 
 
 !pip install requests
@@ -72,7 +72,7 @@ Each section of the code already has the import statements stablished for it to 
 
 ### Gathering the data
 
-The data for this project was gathered from the webpage [Dukascopy].(https://www.dukascopy.com/trading-tools).
+The data for this project was gathered from the webpage [Dukascopy](https://www.dukascopy.com/trading-tools).
 
 The code gathers the data automatically by running each instruments' notebook and stores it into two cvs files, one for tick bars and another one for volume bars.
 
