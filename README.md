@@ -18,7 +18,7 @@ If we acknowledge that institutional investors have access to news before the pu
 * [R](https://www.r-project.org/) - Language used
 
 ### Libraries Required
-This project was made in the Python language, utilizing Jupyter notebooks.
+The gathering and manipulation of the data was made in the Python language, utilizing Jupyter notebooks.
 The Libraries that are require for this Python project to properly run are:
 
 import requests 
@@ -43,29 +43,17 @@ import mysql.connector
 
 from newsapi import NewsApiClient
 
-In order to download this libraries you will need to add a new chunk to the code and run it before the import statements.
+The Analysis part of this project, that is under the analysis folder, was performed in R.
+The libraries required for the proper implementation of the R code are:
 
+library(tidyverse)
 
-!pip install requests
+library(lubridate)
 
-!pip install json
+library(ggplot2)
 
-!pip install pandas
+library(plotly)
 
-!pip install numpy
-
-!pip install datetime
-
-!pip install pickle
-
-!pip install matplotlib
-
-!pip install time
-
-!pip install mysql.connector
-
-
-This list of commands will gather all the required libraries.
 Each section of the code already has the import statements stablished for it to run.
 
 
@@ -80,7 +68,6 @@ The code gathers the data automatically by running each instruments' notebook an
 
 
 ### Visualizations
-These are some visualization that were obtained from the analysis. they will provide a summary of what the conclusions were.
 
 <details>
            <summary>Visualization 1</summary>
@@ -95,7 +82,7 @@ The following visualization shows How the price changed throughout the years. It
            <summary>Visualization 2</summary>
            <p>
                       
-   This is mine actual time series model and one can see the predicted values and how close they were to the actual value. The model had a good accuracy interval.
+
 
 ![alt text](https://github.com/TheCodeMaster2030/Money_Moves/blob/master/code/Time_series.png?raw=true)
   </p>
