@@ -1,0 +1,708 @@
+---
+title: "Exploratory Analysis"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+This RMarkdown explores volume and tick bars parameter's volatility and strives to find the an average range of days pre & post news releases. The goal is to test for significance difference of no-news vs news days. 
+
+The Exploratory is performed for Google. 
+
+# Libraries 
+
+```{r message=FALSE, warning=FALSE}
+# Loading libraries for the research.
+
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+
+setwd("C:/Users/Academica/Desktop/Internet Explorer/STU/Summer 2020/Capstone/Data")
+
+```
+
+# Functions 
+```{r Functions, message=FALSE, warning=FALSE}
+
+News <- function(instrument){
+  #  Reads the news feed for all news and returns a df with news for a specific instrument only.
+  
+  setwd("C:/Users/Academica/Desktop/Internet Explorer/STU/Summer 2020/Capstone/Data")
+
+  news <- read.csv('News - 2019-2020.csv', stringsAsFactors = FALSE) 
+  news <- rename(news, "date" = "ï..pubdate")
+  news$date <- mdy_hm(news$date) 
+  
+  # This chunk finds the articles that refer specific <- y or integrate news.
+  News <- news[c(grep(instrument,news$description)),] %>%
+    filter(hour(date) > 10 & hour(date) < 14)
+  News$date <- sort(News$date)
+  News$dateDistance <- 0
+  for (i in 2:nrow(News)){
+    News$dateDistance[i] <- round(
+      difftime( News$date[i], News$date[i-1],units = "hours"),digits = 2) }
+  
+  return(News)
+}
+
+Bars <- function(csvTick,csvVol,Instrument){
+  # This function reads the data for volume and tick bars for a given instrument.
+  #   It also transforms some variables formats and calculations. 
+  
+  setwd("C:/Users/Academica/Desktop/Internet Explorer/STU/Summer 2020/Capstone/Data")
+
+  TickBars <- read.csv(csvTick) %>% rename("ticks" = "X") 
+  TickBars$timestamp <- as.POSIXct(strptime(TickBars$timestamp, "%Y-%m-%d %H:%M"))
+  TickBars$SpreadCm <- TickBars$SpreadCm / 629
+  TickBars$ObservedPrice <-  as.numeric(unlist( 
+    TickBars['Price'] + TickBars['TickRule'] * (TickBars['Spread'] /2)))
+  TickBars$Bar <- "Tick Bar"
+  TickBars <- filter(TickBars, hour(timestamp) >= 10 & hour(timestamp) < 15)
+
+  
+  VolumeBars <- read.csv(csvVol) %>% rename("ticks" = "X")
+  VolumeBars$timestamp <- as.POSIXct(strptime(VolumeBars$timestamp, "%Y-%m-%d %H:%M"))
+  VolumeBars$SpreadCm <- VolumeBars$SpreadCm / VolumeBars$ticks
+  VolumeBars$ObservedPrice <- as.numeric(unlist(  
+    VolumeBars['Price'] + VolumeBars['TickRule'] * (VolumeBars['Spread'] /2)))
+  VolumeBars$Bar <- "Volume Bar"
+  VolumeBars <- filter(VolumeBars, hour(timestamp) >= 10 & hour(timestamp) < 15)
+  
+  News <- News(Instrument)
+  News <- filter(News, date(News$date) %in%
+                   unique(date(rbind(VolumeBars,TickBars)$timestamp)))
+  
+  VolumeBars$Event <- ifelse(date(VolumeBars$timestamp) %in% unique(date(News$date)),"Yes","No")
+
+  TickBars$Event <- ifelse(date(TickBars$timestamp) %in% 
+                             unique(date(News$date)),"Yes","No")
+
+  return(list(TickBars,VolumeBars))
+}
+
+
+normalize <- function(x) {
+  # Normalizes a vector of numerical data.
+  
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+WaveDf <- function(Bars, EventBinomial){
+  # This function is fundamental for the analysis, as it transforms a Volume or Tick bar data frame, 
+  #   for a specific instrument, by calculating the row-wise (from row 1 stepping down 1 row at a time) percentage change for all the numerical variables (parameters used for the analysis). It also calcuates the index location of each bar from the news release closest bar on time. 
+  # The EventBinomial refers to the prescence of news or not, for the provided df. This is necessary as event days require a more complex treatment (finding the bar of the event, and the previously described process).
+  
+  dfWavePct <- list()
+  dfWavePct2 <- data.frame()
+  
+  if ( EventBinomial == "Yes"){
+    j <- filter(Bars, Event == "Yes")
+    News <- News(as.character(j$Instrument[1])) 
+    News <- filter(News, date(News$date) %in%
+                   unique(date(j$timestamp)))
+    eventDays <- unique(date(News$date))
+    for (i in 1:length(eventDays)){
+      eventDate <- eventDays[i]
+      eventMinute <- hms::as_hms(strsplit(as.character(unique(News$date)[i]), " ")[[1]][2])
+      if (eventDate %in% date(j$timestamp)){
+          data <-  filter(j,date(j$timestamp) == eventDate)
+          data$minute <- hms::as.hms(data$timestamp)
+        
+          rowWhenNews <- grep(eventMinute, data$minute)
+          
+          if (length(rowWhenNews) == 0){
+            rowWhenNews <- which(abs( data$minute - eventMinute) == min(abs( data$minute - eventMinute)))
+          }
+          if (length(rowWhenNews) != 0){
+            data2 <- select_if(data,is.numeric)
+            df <- data.frame()
+            for (p in 1:ncol(data2)){
+              for (k in 2:rowWhenNews){
+                df[k,p] <- abs(round((data2[k,p] - data2[k-1,p]) / data2[k-1,p],5))
+              }
+              for (k in rowWhenNews:(nrow(data2)-1)){
+                df[k+1,p] <- abs(round((data2[k+1,p] - data2[k,p]) / data2[k,p],5))
+              }
+            }
+            names(df) <- names(data2)
+            df$index <- 0
+            for (k in 2:rowWhenNews){df$index[k] <- (rowWhenNews - (k)) * -1}
+            for (k in rowWhenNews:(nrow(data2)-1)){df$index[k+1] <- (k + 1) - rowWhenNews}
+            df$duration <- 0
+            for (k in 2:nrow(df)){df$duration[k] <- 
+              abs(as.numeric(data$timestamp[k] - data$timestamp[k-1]))}
+            df$timestamp <- data$timestamp
+            df$Event <- data$Event
+            df$Bar <- data$Bar
+            if (TRUE %in% (df$Bar == "Volume Bar")){
+              df$Volume <- df$ticks
+            }
+            df$Instrument <- data$Instrument
+            df <- df[-1,]
+
+            dfWavePct[[i]] <- as.data.frame(df)
+            dfWavePct2 <- rbind(dfWavePct2,df)
+          } else {dfWavePct[[i]] <- NULL}
+      }
+    } 
+  return(list(dfWavePct,dfWavePct2,rowWhenNews))
+  }
+  else if (EventBinomial == "No"){
+    j <- filter(Bars, Event == "No")
+    eventDays <- unique(date(j$timestamp))
+    for (i in 1:eventDays){
+      eventDate <- eventDays[i]
+      if (eventDate %in% date(j$timestamp)){
+        data <-  filter(j,date(j$timestamp) == eventDate)
+        data2 <- select_if(data,is.numeric)
+        df <- data.frame()
+        for (p in 1:ncol(data2)){
+          for (k in 2:(nrow(data2))){
+             df[k,p] <- abs(round((data2[k,p] - data2[k-1,p]) / data2[k-1,p],5))
+          }
+        }
+        names(df) <- names(data2)
+        df$index <- 0
+        for (k in 1:nrow(df)){df$index[k] <- k - round((nrow(df)/2))}
+        df$duration <- 0
+        for (k in 2:nrow(df)){df$duration[k] <- 
+          abs(as.numeric(data$timestamp[k] - data$timestamp[k-1]))}        
+        df$timestamp <- data$timestamp
+        df$Event <- data$Event
+        df$Bar <- data$Bar
+        if (TRUE %in% (df$Bar == "Volume Bar")){
+          df$Volume <- df$ticks
+        }
+        df$Instrument <- data$Instrument
+        df <- df[-1,]
+        dfWavePct[[i]] <- df
+        dfWavePct2 <- rbind(dfWavePct2,df)
+    } else {dfWavePct[[i]] <- NULL}
+    }
+    return(dfWavePct2)
+  }
+}
+
+indexDiff <- function(BarNumber){
+  # This function takes in a BarNumber which makes reference to Tick Bar = 1, and Volume Bar = 2, and it returns the index wise p-value of the statistical difference test. The purpose of it is finding those indexes where, on average, exists a signifincant statistical difference. 
+  
+  # Note that a for loop through each numerical column would be nice, however, anova formulas cant take non assigned variables. Future research may find a simpler methodology. 
+  
+  
+  indexDiff <- data.frame()
+  Bar <- unique(All$Bar)[[BarNumber]]
+  data <- All[grep(unique(All$Bar)[[BarNumber]],All$Bar),]
+  for (i in 1:length(sort(unique(data$index)))){
+    
+    i2 <- sort(unique(data$index))[i]
+    data2 <- filter(data, index == i2)
+
+    if (table(data2$Event) > 5){
+      if(length(table(data2$Event) > 5) == 2){
+        
+        indexDiff[i,"bid"] <- summary(
+          aov(bid ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"ask"] <- summary(
+          aov(ask ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"bid_vol"] <- summary(
+          aov(bid_vol ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"ask_vol"] <- summary(
+          aov(ask_vol ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"Volume"] <- summary(
+          aov(Volume ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"Price"] <- summary(
+          aov(Price ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"MidPrice"] <- summary(
+          aov(MidPrice ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"Spread"] <- summary(
+          aov(Spread ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"SpreadCm"] <- summary(
+          aov(SpreadCm ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        #indexDiff[i,"TickRule"] <- summary(
+         # aov(TickRule ~ Event,filter(data, index == i )))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"ObservedPrice"] <- summary(
+          aov(ObservedPrice ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"VWAP"] <- summary(
+          aov(VWAP ~ Event,data2))[[1]]$`Pr(>F)`[1]
+        
+        indexDiff[i,"index"] <- i2
+      }
+    }
+  }
+  indexDiff <- indexDiff[! is.na(indexDiff),] %>%
+    na.omit()
+  indexDiff$Bar <- Bar
+  return(indexDiff)
+}
+
+
+```
+
+
+# Loading and Processing Data
+```{r warning=FALSE}
+
+  
+# FAANG Data ####
+  # Utilizing the Bars function to load and transform each instrument's specific Bars.
+GoogleBars <- Bars("Google/Googleticks.csv","Google/Googlevols.csv","Google")
+FacebookBars <- Bars("Facebook/Facebookticks.csv","Facebook/Facebookvols.csv","Facebook")  
+AppleBars <- Bars("Appleticks.csv","Applevols.csv","Apple")
+AppleBars[[1]] <- filter(AppleBars[[1]], date(timestamp) < ymd("2019-08-30"))
+AppleBars[[2]] <- filter(AppleBars[[2]], date(timestamp) < ymd("2019-08-30"))
+NetflixBars <- Bars("Netflix/Netflixticks.csv","Netflix/Netflixvols.csv","Netflix") 
+
+# Transformations ####
+All2 <- rbind(GoogleBars[[1]],GoogleBars[[2]],FacebookBars[[1]][-7],FacebookBars[[2]][-7],
+             AppleBars[[1]],AppleBars[[2]],NetflixBars[[1]],NetflixBars[[2]])
+
+
+All <- rbind(WaveDf(GoogleBars[[1]],"Yes")[[2]],WaveDf(GoogleBars[[2]],"Yes")[[2]],
+             WaveDf(AppleBars[[1]],"Yes")[[2]],WaveDf(AppleBars[[2]],"Yes")[[2]],
+             WaveDf(NetflixBars[[1]],"Yes")[[2]], WaveDf(NetflixBars[[2]],"Yes")[[2]],
+             WaveDf(GoogleBars[[1]],"No"),WaveDf(GoogleBars[[2]],"No"),
+             WaveDf(AppleBars[[1]],"No"),WaveDf(AppleBars[[2]],"No"),
+             WaveDf(NetflixBars[[1]],"No"), WaveDf(NetflixBars[[2]],"No"))
+
+Desc2 <- All %>%
+  mutate(date_col = date(timestamp)) %>%
+  group_by(Instrument,Event,Bar,date_col) %>%
+  summarise_if(is.numeric,funs(n(),sd)) 
+Desc2 <- Desc2[-c(5:16,18,19)]
+
+
+VolumeBars <- rbind(GoogleBars[[2]],FacebookBars[[2]][-7],AppleBars[[2]],NetflixBars[[2]])
+VolumeBars$Volume <- normalize(VolumeBars$ticks)
+TickBars <- rbind(GoogleBars[[1]],FacebookBars[[1]][-7],AppleBars[[1]],NetflixBars[[1]])
+TickBars$Volume <- normalize(TickBars$Volume)
+Desc3 <- rbind(VolumeBars,TickBars)
+
+indexDiff_Tick <- indexDiff(1)
+indexDiff_Vol <- indexDiff(2)
+
+indexDiff <- rbind(indexDiff_Tick,indexDiff_Vol)
+# WaveDf(FacebookBars[[1]][-7],"Yes"),WaveDf(FacebookBars[[2]][-7],"Yes"),
+# WaveDf(FacebookBars[[1]][-7],"No"),WaveDf(FacebookBars[[2]][-7],"No"),
+
+```
+
+# Graph 1: 
+  This first graph compares the Volume volatilty on news release days vs non news release days. It serves as an introductory view, significance differences on Volume volatility on the prescence of news invites us to deeply analyze these differences.
+
+```{r}
+ggplot(Desc3)  +
+  geom_violin(mapping = aes(x = Event, y = Volume, color = Event)) +
+  facet_grid(.~Bar) +
+  theme(axis.text.x=element_blank())+
+  scale_y_log10() + 
+  labs(title = "Compares the Volume volatilty on news release days vs non news release days.",
+     subtitle = paste("Year 2019 \n",
+                      "Tick Bar: p-value =",
+                 round(summary(aov(Volume~Event, filter(Desc3,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+                 " >>> Confidence to Reject the Null Hypotesis \n",
+                 "Volume Bar: p-value =",
+                 round(summary(aov(Volume~Event, filter(Desc3,Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+                 " >>> Confidence to Reject the Null Hypotesis"),
+     caption = "Source: Dukascopy")
+
+ggplot(Desc3)  +
+  geom_violin(mapping = aes(x = Event, y = VWAP, color = Event)) +
+  facet_grid(.~Bar) +
+  theme(axis.text.x=element_blank())+
+  scale_y_log10() + 
+  labs(title = "Compares the Volume volatilty on news release days vs non news release days.",
+     subtitle = paste("Year 2019 \n",
+                      "Tick Bar: p-value =",
+                 round(summary(aov(VWAP~Event, filter(Desc3,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+                 " >>> Confidence to Reject the Null Hypotesis \n",
+                 "Volume Bar: p-value =",
+                 round(summary(aov(VWAP~Event, filter(Desc3,Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+                 " >>> Confidence to Reject the Null Hypotesis"),
+     caption = "Source: Dukascopy")
+```
+
+# Graph 2: 
+  Evaluates the intraday event based behavior of ticks per bar. Now, we strive to comprehend the behavior of the market at different times of the day, on the prescence of news vs no news days. 
+
+
+```{r}
+ggplot(Desc3, aes(x =factor(hour(timestamp)),Volume)) +
+  facet_grid(Bar~Event) +
+  geom_violin() +
+  theme(axis.title.x=element_blank())+
+  scale_y_log10() + 
+  labs(title = "Evaluates the intraday event based Volume behavior.",
+       subtitle = "Year 2019",
+       caption = "Source: Dukascopy")
+```
+
+# Graph 3:
+  Further, we strive to spot significance differences on the sample volatilty on the prescence of news. The hypotesis claims that on days of news release, the market should have more movement, therefore, the frequency of bars sampling should be significantly differnet than those days of no news release. 
+
+```{r}
+
+
+# Daily frequency of tick and volume spot news.
+ggplot(filter(Desc2,date_col <= tail(sort(filter(Desc2,Event == "Yes")$date_col))[6]),
+              aes(x = date_col)) + 
+  geom_line(mapping = aes(y= VWAP_n , color = Bar)) + 
+ # geom_bar(stat = "identity", mapping = aes(y = SpreadCm_sd * 100)) +
+  #geom_vline(xintercept = News$date) +
+  theme(legend.position = "bottom") + 
+  theme(axis.title.x=element_blank(),
+        axis.text.x = element_blank())+
+  facet_grid(Event~Instrument)+
+  labs(y = "Frequency", 
+       title ="Daily frequency of tick and volume based on intraday news prescence",
+       subtitle = paste("Year 2019 \n",
+                        "Tick Bar: p-value =",
+                   round(summary(aov(VWAP_n~Event, filter(Desc2,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+                   " >>> Fail to Reject the Null Hypotesis \n",
+                   "Volume Bar: p-value =",
+                   round(
+                     summary(aov(VWAP_n~Event, filter(Desc2,Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+                   " >>> Confidence to Reject the Null Hypotesis"),
+       caption = "Source: Dukascopy")
+
+```
+
+# Graph 4: 
+  Compares the day aggregated volume standard deviations on events prescence days. Provides evidence that bid-ask spreads are significantly differnet in days of news release vs days of non news release.
+
+```{r}
+ggplot(Desc2)  +
+  geom_boxplot(mapping = aes(y= SpreadCm_sd, x = Event, fill = Event)) +
+  guides(fill=FALSE)+ 
+  facet_grid(.~Bar) +
+  scale_y_log10() +
+  labs(y = "Spread",title = "Compares the day aggregated Spread standard deviation.",
+   subtitle = paste("Year 2019 \n",
+                    "Tick Bar: p-value =",
+               round(summary(aov(SpreadCm_sd~Event, filter(Desc2,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>>  Confidence to Reject the Null Hypotesis \n",
+               "Volume Bar: p-value =",
+               round(
+                 summary(aov(SpreadCm_sd~Event, filter(Desc2,Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>>  Confidence to Reject the Null Hypotesis."),
+   caption = "Source: Dukascopy")
+
+ggplot(Desc2)  +
+  geom_boxplot(mapping = aes(y= Volume_sd, x = Event, fill = Event)) +
+  guides(fill=FALSE)+ 
+  facet_grid(.~Bar) +
+  scale_y_log10() +
+  labs(y = "Volume",title = "Compares the day aggregated Volume standard deviation.",
+   subtitle = paste("Year 2019 \n",
+                    "Tick Bar: p-value =",
+               round(summary(aov(Volume_sd~Event, filter(Desc2,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>>  Fail to Reject the Null Hypotesis \n",
+               "Volume Bar: p-value =",
+               round(summary(aov(Volume_sd~Event, filter(Desc2,Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>> Confidence to Reject the Null Hypotesis"),
+   caption = "Source: Dukascopy")
+
+ggplot(Desc2)  +
+  geom_boxplot(mapping = aes(y= VWAP_sd, x = Event, fill = Event)) +
+  guides(fill=FALSE)+ 
+  facet_grid(.~Bar) +
+  scale_y_log10() +
+  labs(y = "Price",title = "Compares the day aggregated Price standard deviation.",
+   subtitle = paste("Year 2019 \n",
+                    "Tick Bar: p-value =",
+               round(summary(aov(VWAP_sd~Event, filter(Desc2,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>>  Confidence to Reject the Null Hypotesis \n",
+               "Volume Bar: p-value =",
+               round(summary(aov(VWAP_sd~Event, filter(Desc2,Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>>  Confidence to Reject the Null Hypotesis."),
+   caption = "Source: Dukascopy")
+
+
+ggplot(Desc2)  +
+  geom_boxplot(mapping = aes(y= VWAP_n, x = Event, fill = Event)) +
+  guides(fill=FALSE)+ 
+  facet_grid(.~Bar) +
+  scale_y_log10() +
+  labs(y = "Frequency",title = "Compares the day aggregated Frequency standard deviation.",
+   subtitle = paste("Year 2019 \n",
+                    "Tick Bar: p-value =",
+               round(summary(aov(VWAP_n~Event, filter(Desc2,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>>  Fail to Reject the Null Hypotesis \n",
+               "Volume Bar: p-value =",
+               round(summary(aov(VWAP_n~Event, filter(Desc2,Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+               " >>>  Confidence to Reject the Null Hypotesis."),
+   caption = "Source: Dukascopy")
+
+```
+
+# Graph 5:
+  Aims to visualize "the wave" by plotting the index (distance from news release) vs the row-wise percent change. Significant difference on volume bars supports that these bars are better to classify the wave.
+
+```{r}
+lala <- All %>%
+  group_by(Bar, Event, index) %>%
+  summarise_if(is.numeric,funs(n(),mean)) %>%
+  select(-c(5:17))
+lala <- filter(lala, ticks_n >= 10 & index > -65 & index < 66)
+lala$Session <- ifelse(lala$index <= 0,"Before","After")
+
+ggplot(lala,aes(x = index)) +
+  geom_line(aes(y = Volume_mean),colour = "#0072B2") + 
+#  geom_line(aes(y = VWAP_mean, color = "VWAP")) + 
+  geom_line(aes(y = SpreadCm_mean),colour = "#D55E00") +
+  geom_vline(xintercept = 0) + 
+  facet_grid(Event~Bar) +
+  scale_y_log10() +
+  labs(y = "Pct Change",
+     title = "Index Series of % Change",
+     subtitle = paste("Tick Bar Volume: p-value", 
+                   round(summary(
+                     aov(Volume_mean~ Event,data = filter(lala,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+                   " >>> Fail to Reject the Null Hypotesis \n",
+                   "Volume Bar Volume: p-value =",
+                   round(summary(
+                     aov(
+                       Volume_mean~ Event,data = filter(lala, Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+                   ">>> Fail to Reject the Null Hypotesis \n",
+               #    "Tick Bar Price: p-value", 
+                #   round(summary(
+                 #    aov(VWAP_mean~ Event,data = filter(lala,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+                  # " >>> Fail to Reject the Null Hypotesis \n",
+              #     "Volume Bar Price: p-value =",
+          #         round(summary(
+           #          aov(
+            #           VWAP_mean~ Event,data = filter(lala, Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+             #      ">>> Fail to Reject the Null Hypotesis \n",
+                   "Tick Bar Spread: p-value", 
+                   round(summary(
+                     aov(SpreadCm_mean~ Event,data = filter(lala,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+                   " >>> Fail to Reject the Null Hypotesis \n",
+                   "Volume Bar Spread: p-value =",
+                   round(summary(
+                     aov(
+                       SpreadCm_mean~ Event,data = 
+                         filter(lala, Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+                   ">>> Confidence to Reject the Null Hypotesis."),
+       caption = "Source: Dukascopy")
+
+
+ggplot(lala,aes(x = index,y = VWAP_mean)) +
+  geom_line() + 
+  geom_smooth(method="loess") + 
+  geom_vline(xintercept = 0) + 
+  facet_grid(Event~Bar) +
+  labs(y = "Pct Change",
+   title = "Index Series of % Change",
+   subtitle = paste("Tick Bar Price: p-value", 
+                   round(summary(
+                     aov(VWAP_mean~ Event,data = filter(lala,Bar == "Tick Bar")))[[1]]$`Pr(>F)`[1],4),
+                   " >>> Confidence to Reject the Null Hypotesis. \n",
+                   "Volume Bar Price: p-value =",
+                   round(summary(
+                     aov(
+                       VWAP_mean~ Event,data = filter(lala, Bar == "Volume Bar")))[[1]]$`Pr(>F)`[1],4),
+                   ">>> Confidence to Reject the Null Hypotesis."))
+ 
+
+
+
+```
+
+# Graph 6:
+  Spots p-values smaller than 0.05. These values are the wave confirmations. Spread and Volume parameters show significance difference at different indexes. Further analysis is necessary to personalize the analysis by instrument and day (to test the hypotesis that there are differnet news behaviors). 
+
+```{r warning=FALSE}
+ggplot(indexDiff, aes(x = index)) + 
+  geom_point(aes(y = Volume),colour = "#0072B2") + 
+  geom_point(aes(y = SpreadCm),colour = "#D55E00") +
+  #geom_point(aes(y = VWAP, color = "VWAP")) +
+  geom_hline(yintercept = 0.05) + 
+  facet_grid(.~Bar) +
+  labs(y = "P-value", 
+       title = "Evaluates indexe's significance difference by News or Non News Days",
+       subtitle = "Visualizes the indexes which may identify as wave predictors",
+       caption = "Source: Dukascopy")
+
+
+```
+
+# Graph 7:
+  These vars visualizes market trends and the news days vs non news days significant different indexes (lines). These graphs helps us test the stastitially different behavior of informed traders (before news release) and the retail investors (after news release). 
+  Note that these values may provide better comparison when tested on specific clusters of news days. 
+
+```{r}
+
+lala <- All %>%
+  group_by(Bar, Event, index) %>%
+  summarise_if(is.numeric,funs(n(),mean)) %>%
+  select(-c(5:17))
+lala$Session <- ifelse(lala$index <= 0,"Before","After")
+
+theme_set(theme_bw())
+
+ggplot(filter(lala,Event == "Yes"& Bar == "Tick Bar" & index %in% indexDiff_Tick$index),aes(x = index)) +
+  geom_line(aes(y = Volume_mean),colour = "#0072B2") + 
+  geom_line(aes(y = SpreadCm_mean),colour = "#D55E00") +
+  geom_vline(xintercept = 0) + 
+  geom_vline(xintercept = sort(filter(indexDiff_Tick, SpreadCm < 0.05)$index),
+             linetype="dotdash",colour = "#D55E00") +
+  geom_vline(xintercept = sort(filter(indexDiff_Tick, Volume < 0.05)$index),
+             linetype="dotdash",colour = "#0072B2") +
+  scale_y_log10() +
+  labs(y = "% Change",
+       title = "Identifies event vs no event significance difference (lines) \n  on the market intraday pct. change on event days, using Tick Bars",
+       subtitle = paste("Before/After News Significance Difference: \n Volume p-Value",
+                        round(summary(aov(Volume_mean~Session,
+                                    filter(lala,Event == "Yes"& Bar == "Tick Bar" & 
+                                             index %in% indexDiff_Tick$index)))[[1]]$`Pr(>F)`[1],4),
+                        ">>> Fail to Reject the Null Hypotesis \n Spread p-Value",
+                        round(summary(aov(SpreadCm_mean~Session,
+                                    filter(lala,Event == "Yes"& Bar == "Tick Bar" & 
+                                             index %in% indexDiff_Tick$index)))[[1]]$`Pr(>F)`[1],4),
+                        ">>> Fail to Reject the Null Hypotesis"))                  
+
+ggplot(filter(lala,Event == "Yes"& Bar == "Volume Bar"),aes(x = index)) +
+  geom_line(aes(y = Volume_mean),colour = "#0072B2") + 
+  geom_line(aes(y = SpreadCm_mean),colour = "#D55E00") +
+  geom_vline(xintercept = 0) + 
+  geom_vline(xintercept = sort(filter(indexDiff_Vol, SpreadCm < 0.05)$index),
+             linetype="dotdash",colour = "#D55E00") +
+  geom_vline(xintercept = sort(filter(indexDiff_Vol, Volume < 0.05)$index),
+             linetype="dotdash",colour = "#0072B2") +
+  scale_y_log10() + 
+  labs(y = "% Change",
+       title = "Identifies event vs no event significance difference (lines) \n  on the market intraday pct. change on event days, using Volume Bars",
+       subtitle = paste("Before/After News Significance Difference: \n Volume p-Value",
+                        round(summary(aov(Volume_mean~Session,
+                                    filter(lala,Event == "Yes"& Bar == "Volume Bar" & 
+                                             index %in% indexDiff_Tick$index)))[[1]]$`Pr(>F)`[1],4),
+                        ">>> Fail to Reject the Null Hypotesis \n Spread p-Value",
+                        round(summary(aov(SpreadCm_mean~Session,
+                                    filter(lala,Event == "Yes"& Bar == "Volume Bar" & 
+                                             index %in% indexDiff_Tick$index)))[[1]]$`Pr(>F)`[1],4),
+                        ">>> Fail to Reject the Null Hypotesis"))
+  
+ggplot(filter(lala,Event == "Yes"& Bar == "Volume Bar"),aes(x = index)) +
+  geom_line(aes(y = VWAP_mean),colour = "#00ba38") + 
+  geom_vline(xintercept = 0) + 
+  geom_vline(xintercept = sort(filter(indexDiff_Vol, VWAP < 0.05)$index),
+           linetype="dotdash",colour ="#999999") +
+  scale_y_log10() + 
+  labs(y = "% Change",
+       title = "Identifies event vs no event significance difference (lines) \n  on the market intraday pct. change on event days, using Volume Bars",
+       subtitle = paste("Before/After News Significance Difference: \n Price p-Value",
+                        round(summary(aov(VWAP_mean~Session,
+                                    filter(lala,Event == "Yes"& Bar == "Volume Bar" & 
+                                             index %in% indexDiff_Tick$index)))[[1]]$`Pr(>F)`[1],4),
+                        ">>> Confidence to Reject the Null Hypotesis"))
+
+
+
+ggplot(filter(lala,Event == "Yes"& Bar == "Tick Bar"),aes(x = index)) +
+  geom_line(aes(y = VWAP_mean),colour = "#00ba38") + 
+  geom_vline(xintercept = 0) + 
+  geom_vline(xintercept = sort(
+    filter(indexDiff_Vol, 
+           VWAP < 0.05 & index %in% filter(lala,Event == "Yes"& Bar == "Tick Bar")$index)$index),
+           linetype="dotdash",colour ="#999999") +
+  scale_y_log10() + 
+  labs(y = "% Change",
+       title = "Identifies event vs no event significance difference (lines) \n  on the market intraday pct. change on event days, using Tick Bars",
+       subtitle = paste("Before/After News Significance Difference: \n Price p-Value",
+                        round(summary(aov(VWAP_mean~Session,
+                                    filter(lala,Event == "Yes"& Bar == "Tick Bar" & 
+                                             index %in% indexDiff_Tick$index)))[[1]]$`Pr(>F)`[1],4),
+                        ">>> Confidence to Reject the Null Hypotesis"))
+
+
+
+
+```
+
+
+# Clustering (Future Research)
+```{r}#
+# Measuring Date wave by assigning (Compare vs event days same bar's index mean)
+#   wave start
+#   wave length
+#   strength (Significance difference on parameters vs Non Event Days Mean)
+#   Behavior of before/after event sessions
+
+# Cluster by those variables
+# do Graph on chunck above for the different clusters
+
+
+EachDayTest <- select(filter(All,Event == "Yes"),c(14,15,17,18))
+EachDayTest$timestamp <- date(EachDayTest$timestamp)
+EachDayTest <- EachDayTest %>% 
+  distinct()
+pepe <- filter(All,Event == "Yes")
+pepe$timestamp <- date(pepe$timestamp)
+EachDayTest <- inner_join(EachDayTest,pepe, by = c("index", "Bar","Instrument","timestamp"))
+EachDayTest <- select(pepe,c(14,15,17,18))
+
+main <- data.frame()
+for (p in names(table(All$Instrument))){
+  data <- filter(All, Instrument == p & Event == "Yes" & index %in% indexDiff_Tick$index)
+  for(f in names(table(All$Bar))){
+    data <- filter(data, Bar == f)
+    for(j in 1:length(unique(date(data$timestamp)))){  
+      data2 <- filter(data,date(timestamp) == date(data$timestamp)[j])
+      for (i in 1:nrow(data)){
+        indexDay <- sort(data$index)[i]
+        OtherDays <- filter(lala, Bar == data$Bar[1] & Event == "Yes" & index == indexDay)
+        for(k in c(6:14,16,17)){
+          Test <-  if(OtherDays[k] > filter(data, index == indexDay)[k]){1}else{0}
+          main[i,names(data[k])] <- Test
+        }
+        for(k in 1:4){
+          main[i,names(data[k])] <- data[i,k]
+        }
+      }
+    }
+  }
+}
+
+
+
+```
+
+
+```{r warning=FALSE}#
+for (j in names(table(All$Instrument))){
+  for(f in names(table(All$Bar))){
+  data <- filter(All, Instrument == j &  Bar == f)
+  data$timestamp <- date(data$timestamp)
+  for (i in 1:length(unique(data$timestamp))){
+    data1 <- filter(data,timestamp ==  unique(data$timestamp)[i])
+    #if (TRUE %in% duplicated(data$index)){print("Yes")}
+    cat(j, f, unique(data1$timestamp), dim(data1)[1], "\n")
+  }}}
+  data3 <- select(data,c(14,15)) 
+  data4 <- inner_join(data3,data, by = c("index", "timestamp"))
+  cat(j,f, dim(data3)[1], "vs", dim(data4)[1], "\n")
+  
+```
+
+```{r}#
+low <- All %>% mutate(date_col = date(timestamp)) %>% 
+  group_by(Instrument, Event,Bar,date_col) %>% summarise(n()) 
+
+ggplot(low, mapping = aes(x = date_col, y = `n()`)) + 
+  geom_line() + 
+  facet_grid(Instrument~Bar) +
+  labs(title= "Sample Frequency", x = "Month", y = "Frequency")
+```
+
