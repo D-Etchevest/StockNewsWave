@@ -1,22 +1,21 @@
 # Stows News Wave Capstone Project
 
-This project analyzes movements in stocks' prices and correlates them to news releases and how institutional investors can be aware of these news before retail investors.
+This project analyzes movements in stocks' volatility parameters and correlates them to news releases and how institutional investors can be aware of these news before retail investors.
 
 ## Motivation
 
-The goal of this project is to able to identify a wave like pattern in stock data that implies the foreknowledge of news events by institutional investors. Then be able to confirm these patterns with the actual news data. //Revising
+The goal of this project is to able to identify a wave like pattern in stock data that implies the foreknowledge of news events by institutional investors. Then be able to confirm these patterns with the actual news data. 
 
 ## Problem Statement
 
-If we acknowledge that institutional investors have access to news before the public does, what is the impact of news information on stock price? 
+If we acknowledge that institutional investors have access to news before the public does, what is the impact of news information on the stock market volatility? 
 
 ## Prerequisites
 
 ### Built With
 
 * [Python](https://www.python.org/) - Language used.
-* [Jupyter Notebooks](https://jupyter.org/install) - IDE used for the project.
-* [Azure Notebooks](https://notebooks.azure.com/) - Online version of the IDE.
+* [R](https://www.r-project.org/) - Language used
 
 ### Libraries Required
 This project was made in the Python language, utilizing Jupyter notebooks.
