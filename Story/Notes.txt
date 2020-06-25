@@ -1,0 +1,16 @@
+Goals:
+	Develope a system that will be reading live news into a warehouse and then use machine learning models to determine the sentiment of the news based 		on the price changes.
+
+	Develope a system to take actions based on the research. Define the weight of the different models and add them to a stochastic strategy.
+
+	Determine information driven price waves. It focuses on the relationshop between news / social media feeds and prices volatility for a 
+		specific period of time. Our research will pursue the development of an automated process which feeds from historichal stock prices and news 			feeds to determine the length and strength of the different information profiles. Also, it will try to calculate the time frame that 				they take to develop since the release of the news. 
+
+	Finding groups of traders among a period of time that involves before-during-after news and social media releases. It is possible to identify the 			presence of informed traders; develop signal to identify beginning of process. During news releases another wave of traders adds a cluster. 			After news releases refers to normal situations where non-informed traders are found (if non informed traders).
+
+	Profiling. Stocks behave in different ways, some of the main characteristics define their volatility levels, their correlation to market 				indexes, their price range, and their dependencies. Ex, General Motors w oil. The hypotesis explains that different profiles of stocks are 			affected diffently by news sentiment analysis, waves are different as well; the differences are from cluster to cluster, and no 				between elements of the cluster. 
+
+problems: 
+	we dont know when prices are actually going to start reflecting the sentiment of the news
+	we dont know when informed traders get the information (institutional traders)
+	
