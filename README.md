@@ -82,7 +82,7 @@ The research serves as a ground to deep dive into the research of machine learni
            <summary>"Wave" pattern visualization</summary>
            <p>
                       
-       Aims to visualize “the wave” by plotting the index (distance from news release) vs the row-wise percent change. Significant difference on volume bars supports that these bars are better to classify the wave. They prove the significance between the days with events and the days without events, by showing the increase in volatility and volume.
+ Aims to visualize “the wave” by plotting the index (distance from news release) vs the row-wise percent change. Significant difference on volume bars supports that these bars are better to classify the wave. They prove the significance between the days with events and the days without events, by showing the increase in volatility and volume.
          
 
 ![alt text](https://github.com/DrMondesire/StockNewsWave/blob/master/Graphs/PercentChange.png?raw=true)
@@ -97,7 +97,7 @@ The research serves as a ground to deep dive into the research of machine learni
            <summary>Market trends news days vs no news days</summary>
            <p>
                      
-                     These bars visualizes market trends and the news days vs non news days significant different indexes (lines). These graphs helps us test the stastitially different behavior of informed traders (before news release) and the retail investors (after news release). Note that these values may provide better comparison when tested on specific clusters of news days.
+ These bars visualizes market trends and the news days vs non news days significant different indexes (lines). These graphs helps us test the stastitially different behavior of informed traders (before news release) and the retail investors (after news release). Note that these values may provide better comparison when tested on specific clusters of news days.
 
    ![alt text](https://github.com/DrMondesire/StockNewsWave/blob/master/Graphs/EventsVSnoEventsSigDif.png?raw=true)
   </p>
