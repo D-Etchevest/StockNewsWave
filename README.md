@@ -66,7 +66,11 @@ The code gathers the data automatically by running each instruments' notebook an
 
 ## Methodology
 
-In this study, the data is pulled automatically in a batch process that requests 5000 quotes per request. Then the data is processed by developing volume and tick bars for further analysis. Some of the variables created in the bars are ticks inside the bar, Volume from bid-ask, Price, Spread of bid-ask quotes, and TickRule. The study is then focused on aggregated tick and volumes bars to more precisely detect significantly different pattern behaviors. An index is then developed in which it is 0 at the moment of the news release, or the closest on distance bar. Therefore, allowing us to analyze the significance of the moves before and after the news is released. The next method implemented involves the development of a function which calculates the normalized (to deal with outliers) absolute (to deal with negative values) percentage change on any specified parameter. These procedures allow us to evaluate index detailed behavior on catalyst days, therefore being able to identify the exact index location of the average wave start, end, and strength.
+In this study, the data is pulled automatically in a batch process that requests 5000 quotes per request. Then the data is processed by developing volume and tick bars for further analysis. Some of the variables created in the bars are ticks inside the bar, Volume from bid-ask, Price, Spread of bid-ask quotes, and TickRule. 
+
+The study is then focused on aggregated tick and volumes bars to more precisely detect significantly different pattern behaviors. An index is developed which is 0 at the moment of the news release, or the closest on distance bar. Therefore, allowing us to analyze the significance of the moves before and after the news is released. 
+
+The next method implemented involves the development of a function which calculates the normalized (to deal with outliers) absolute (to deal with negative values) percentage change on any specified parameter. These procedures allow us to evaluate index detailed behavior on catalyst days, therefore being able to identify the exact index location of the average wave start, end, and strength.
 
 ## Text Findings
 
