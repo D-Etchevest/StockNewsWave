@@ -76,11 +76,12 @@ The next method implemented involves the development of a function which calcula
 
 In conclusion, our research tested whether news catalyst had, in general, an impact on the market volatility. We have tested that both tick and volume bars accurately show these differences, but they also convey information more frequently when markets are moving more (more market orders and more volume being traded).  
 
-           Wave (index 0 = News release)
-Bar	Measure	Start	End	Duration
-
-Volume	Spread	-74	42	116
-	Volume	-39	53	92
+        Wave (index 0 = News release)
+	-----------------
+Bar   |   Measure   |   Start   |   End   |Duration
+ ---         ---           ---        ---     ---
+Volume   |   Spread   |	-74 |	42 | 116
+	 | Volume	-39	53	92 
 	Price	-1	59	60
 Tick	Spread	-44	43	87
 	Volume	-43	53	96
