@@ -4,7 +4,8 @@ This project analyzes movements in stocks' volatility parameters and correlates 
 
 ## Motivation
 
-The goal of this project is to able to identify a wave like pattern in stock data that implies the foreknowledge of news events by institutional investors. Then be able to confirm these patterns with the actual news data. 
+This project was created with the intent to give retail investors an indicator that there is a potential move in stock prices. The mentioned indicator will facilitate trend identification even before news are released to the general public. Thus, benefiting retail investors and level the playfield between them and institutional investors.
+
 
 ## Problem Statement
 
