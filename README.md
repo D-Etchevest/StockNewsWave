@@ -98,12 +98,13 @@ The research serves as a ground to deep dive into the research of machine learni
 
          
  <details>
-           <summary>Market trends news days vs no news days</summary>
+           <summary>Wave Development</summary>
            <p>
                      
  These bars visualizes market trends and the news days vs non news days significant different indexes (lines). These graphs helps us test the stastitially different behavior of informed traders (before news release) and the retail investors (after news release). Note that these values may provide better comparison when tested on specific clusters of news days.
 
    ![alt text](https://github.com/DrMondesire/StockNewsWave/blob/master/Graphs/EventsVSnoEventsSigDif.png?raw=true)
+   ![alt text](https://github.com/DrMondesire/StockNewsWave/blob/master/Graphs/EventsVSnoEventsSigDifVol.png?raw=true)
   </p>
  </details>
          
